@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<title>Карантинные требования</title>
+<style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: linear-gradient(to bottom, #eef2f3, #ffffff);
+      padding: 40px;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.08);
+      padding: 30px 40px;
+    }
+    h2 {
+      margin-bottom: 20px;
+      color: #2c3e50;
+      text-align: center;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    select {
+      padding: 10px 15px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: #fdfdfd;
+      font-size: 16px;
+      min-width: 240px;
+    }
+    .flag-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .flag-img {
+      width: 22px;
+      height: 16px;
+      object-fit: cover;
+      border-radius: 3px;
+      vertical-align: middle;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+    }
+    th, td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #333;
+    }
+    tr:hover {
+      background-color: #f9fbfc;
+    }
+	button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+button:hover {
+  background-color: #2d85c4;
+}
+
+button:active {
+  background-color: #1e6fa5;
+}
+
+.refresh-btn {
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background-color: #2ecc71;
+}
+
+.refresh-btn:hover {
+  background-color: #27ae60;
+}
+  </style>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<div class="container">
+<div id="tabs" style="text-align:center; margin-bottom:20px;">
+<button onclick="goToTab('mainTab')" style="margin-right:10px;">По культуре</button>
+<button onclick="goToTab('objectTab')">По объекту</button>
+<button onclick="goToTab('multiObjectTab')">Исключение по объектам</button></div><h2>Карантинные требования</h2>
+<div id="mainTab" style=""><div class="controls">
+<div id="approvalBox" style="margin: 10px auto 20px; padding: 10px 18px; border-radius: 10px; max-width: 600px; font-weight: bold; font-size: 16px; text-align: center; display: none; background-color: #d9f9e3; color: #1e5631; border: 1px solid #b5e5c0;">
+</div>
+<label for="country">Страна:</label>
+<select id="country" onchange="updateCrops()"></select>
+<label for="crop">Культура:</label>
+<select id="crop" onchange="showData()"></select>
+</div><div id="specialNoteBox" style="margin: 15px auto 20px; padding: 12px 20px; border-radius: 10px; max-width: 600px; font-weight: bold; font-size: 16px; text-align: center; display: none; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba;">❗ Для этой страны требуется ИКР</div></div>
+<div id="result"></div>
+<div id="objectTab" style="display:none; text-align:center; margin-top:20px;">
+<label for="rusName">Объект (на русском):</label>
+<select id="rusName" onchange="showCountriesByObject()" style="margin-bottom:15px;"></select>
+<div id="objectResult"></div>
+</div>
+<div id="multiObjectTab" style="display:none; text-align:center; margin-top:20px;">
+  <label for="multiObjectSelect">Выберите объекты:</label><br/>
+  <input type="text" id="objectSearchInput" placeholder="Поиск объекта..." style="margin-bottom:10px; padding:5px; width:280px;" oninput="filterObjectList()">
+  <div id="multiCheckboxList" style="max-height:300px; overflow-y:auto; border:1px solid #ccc; padding:10px; border-radius:10px; margin-bottom:10px;"></div>
+
+  <button onclick="analyzeCountriesByObjects()">Показать анализ по странам</button>
+  <div id="multiObjectResult" style="margin-top:20px; font-size:16px; text-align:left;"></div>
+</div>
+</div>
+
+<script>
+  let data = {};
+  fetch('./data7.json')
+    .then(response => response.json())
+    .then(json => {
+      data = json;
+      if (typeof window.dataReadyCallback === 'function') {
+        window.dataReadyCallback();
+      }
+    })
+    .catch(error => {
+      console.error('Ошибка загрузки data.json:', error);
+    });
+</script>
+<script>
+    const countryCodes = {"Австрия": "at", "Албания": "al", "Алжир": "dz", "Германия": "de", "Франция": "fr", "Россия": "ru", "США": "us", "Китай": "cn", "Япония": "jp", "Таджикистан": "tj", "Узбекистан": "uz", "Туркменистан": "tm", "Кыргызстан": "kg", "Беларусь": "by", "Казахстан": "kz", "Азербайджан": "az", "Армения": "am", "Грузия": "ge"};
+	const highlightedObjects = ["вьюнок полевой", "горец вьюнковый", "овсюг обыкновенный", "бодяк полевой", "василек синий", "воробейник полевой", "горец птичий", "горец шероховатый", "горох полевой", "горчак ползучий", "горчица полевая", "ежовник обыкновенный", "трехреберник непахучий", "канатник теофраста", "костер мягкий", "лисохвост мышехвостниковидный", "марь белая", "плевел персидский", "повилика все виды", "подмаренник цепкий", "просвирник низкий", "пырей ползучий", "редька полевая", "сорго алеппское", "тимелея воробьиная", "торилис японский", "фиалка полевая", "щетинник сизый", "щирица запрокинутая", "эгилопс цилиндрический", "ярутка полевая", "амбарный долгоносик", "гороховая зерновка", "малый мучной хрущак", "мукоед  малый", "мукоед короткоусый рыжий", "суринамский мукоед", "амброзия", "щетинник мутовчатый", "щетинник зелёный", "дурнишник обыкновенный", "карликовая головня", "род головневых", "конопля", "твердая головня", "пикульник обыкновенный", "неслия метельчатая", "мачок рогатый", "пырей", "эгилопс", "канатник", "щирица", "овес людовика", "костер все виды", "василек все виды", "марь все виды", "ярутка все виды", "сорго все виды", "смолевка все виды", "подмаренник все виды", "смолевка широколистная", "полевка все виды", "щавель все виды", "щетинник", "горчица все виды"];
+    
+const countrySelect = document.getElementById('country');
+    const cropSelect = document.getElementById('crop');
+    const resultDiv = document.getElementById('result');
+
+    function populateCountries() {
+      countrySelect.innerHTML = '<option value="">-- выберите --</option>';
+      for (const country in data) {
+        const code = countryCodes[country];
+        const opt = document.createElement("option");
+        opt.value = country;
+        if (code) {
+          opt.innerHTML = `<img src='https://flagcdn.com/w40/${code}.png' class='flag-img'> ${country}`;
+        } else {
+          opt.textContent = country;
+        }
+        countrySelect.appendChild(opt);
+      }
+    }
+
+    function updateCrops() {
+      cropSelect.innerHTML = '<option value="">-- выберите --</option>';
+      resultDiv.innerHTML = '';
+      const selectedCountry = countrySelect.value.replace(/<.*?>/g, '').trim();
+      if (data[selectedCountry]) {
+        for (const crop in data[selectedCountry]) {
+          const opt = document.createElement('option');
+          opt.value = crop;
+          opt.textContent = crop;
+          cropSelect.appendChild(opt);
+        }
+      }
+    }
+
+    function showData() {
+  const country = countrySelect.value;
+  const crop = cropSelect.value;
+  const approvalBox = document.getElementById("approvalBox");
+  const approvedPairs = [
+  { country: "Алжир", crop: "пшеница" },
+  { country: "Ангола", crop: "пшеница" },
+  { country: "Бангладеш", crop: "горох" },
+  { country: "Бангладеш", crop: "горчица" },
+  { country: "Бангладеш", crop: "лен" }, 
+  { country: "Бангладеш", crop: "пшеница" },
+  { country: "Беларусь", crop: "рис." },
+  { country: "Бразилия", crop: "пшеница" },
+  { country: "Венесуэла", crop: "пшеница" },
+  { country: "Вьетнам", crop: "просо" },
+  { country: "Гана", crop: "пшеница" },
+  { country: "Демократическая республика конго", crop: "пшеница" },
+  { country: "Джибути", crop: "пшеница" },
+  { country: "Египет", crop: "кориандр" },
+  { country: "Египет", crop: "пшеница" },
+  { country: "Египет", crop: "сафлор" },
+  { country: "Египет", crop: "чечевица" },
+  { country: "Израиль", crop: "горох" },
+  { country: "Израиль", crop: "крупа гречневая" },
+  { country: "Израиль", crop: "крупа ячменная (перловая)" },
+  { country: "Израиль", crop: "лен" },
+  { country: "Израиль", crop: "мука" },
+  { country: "Израиль", crop: "нут" },
+  { country: "Израиль", crop: "пшеница" },
+  { country: "Индия", crop: "горох" },
+  { country: "Индия", crop: "кориандр" },
+  { country: "Индия", crop: "чечевица" },
+  { country: "Индонезия", crop: "кориандр" },  
+  { country: "Индонезия", crop: "пшеница" },
+  { country: "Иордания", crop: "нут" },
+  { country: "Ирак", crop: "пшеница" },
+  { country: "Иран", crop: "пшеница" },
+  { country: "Иран", crop: "ячмень" },
+  { country: "Италия", crop: "пшеница" },
+  { country: "Йемен", crop: "пшеница" },
+  { country: "Камерун", crop: "пшеница" },
+  { country: "Катар", crop: "пшеница" },
+  { country: "Кения", crop: "пшеница" },
+  { country: "Китай", crop: "горох" },
+  { country: "Китай", crop: "жом свекловичный" },
+  { country: "Китай", crop: "крупа пшено" },
+  { country: "Китай", crop: "лен" },
+  { country: "Китай", crop: "масло растительное" },
+  { country: "Китай", crop: "масло соевое" },
+  { country: "Китай", crop: "овес" },
+  { country: "Китай", crop: "ячмень" },
+  { country: "Ливан", crop: "пшеница" },
+  { country: "Ливия", crop: "ячмень" },
+  { country: "Малави", crop: "пшеница" },
+  { country: "Мали", crop: "пшеница" },
+  { country: "Марокко", crop: "пшеница" },
+  { country: "Мексика", crop: "пшеница" },
+  { country: "Мозамбик", crop: "пшеница" },
+  { country: "Нигерия", crop: "пшеница" },
+  { country: "Объединенные арабские эмираты", crop: "горох" },
+  { country: "Объединенные арабские эмираты", crop: "кориандр" },
+  { country: "Объединенные арабские эмираты", crop: "мука" },
+  { country: "Объединенные арабские эмираты", crop: "нут" },
+  { country: "Объединенные арабские эмираты", crop: "пшеница" },
+  { country: "Объединенные арабские эмираты", crop: "чечевица" },
+  { country: "Оман", crop: "пшеница" },
+  { country: "Пакистан", crop: "горох" },
+  { country: "Пакистан", crop: "кориандр" },
+  { country: "Пакистан", crop: "нут" },
+  { country: "Пакистан", crop: "чечевица" },
+  { country: "Саудовская Аравия", crop: "горох" },
+  { country: "Саудовская Аравия", crop: "нут" },
+  { country: "Саудовская Аравия", crop: "пшеница" },
+  { country: "Сенегал", crop: "пшеница" },
+  { country: "Сирия", crop: "пшеница" },
+  { country: "Сомали", crop: "пшеница" },
+  { country: "Судан", crop: "пшеница" },
+  { country: "Сьерра-Леоне", crop: "пшеница" },
+  { country: "Тайвань", crop: "сафлор" },
+  { country: "Тунис", crop: "пшеница" },
+  { country: "Турция", crop: "горох" },
+  { country: "Турция", crop: "жом свекловичный" },
+  { country: "Турция", crop: "кукуруза" },
+  { country: "Турция", crop: "лен" },
+  { country: "Турция", crop: "нут" },
+  { country: "Турция", crop: "отруби" },
+  { country: "Турция", crop: "отруби пшеничные" },
+  { country: "Турция", crop: "просо" },
+  { country: "Турция", crop: "пшеница" },
+  { country: "Турция", crop: "чечевица" },
+  { country: "Филиппины", crop: "просо" },
+  { country: "Филиппины", crop: "сафлор" },
+  { country: "Шри-Ланка", crop: "горох" },
+  { country: "Шри-Ланка", crop: "мука" },
+  { country: "Шри-Ланка", crop: "нут" },
+  { country: "Шри-Ланка", crop: "пшеница" },
+  { country: "Шри-Ланка", crop: "чечевица" },
+  { country: "Израиль", crop: "булгур" },
+  { country: "Объединенные арабские эмираты", crop: "ячмень" },
+  { country: "Саудовская Аравия", crop: "ячмень" },
+  { country: "Кувейт", crop: "ячмень" },
+  { country: "Оман", crop: "ячмень" },
+  { country: "Катар", crop: "ячмень" },
+  { country: "Бахрейн", crop: "ячмень" }
+  
+];
+const isApproved = approvedPairs.some(pair => pair.country === country && pair.crop === crop);
+approvalBox.innerHTML = isApproved ? "✔ Согласовано" : "✖ Не согласовано";
+approvalBox.style.backgroundColor = isApproved ? "#00FF00" : "#FF0000";
+approvalBox.style.color = isApproved ? "#1e5631" : "#721c24";
+approvalBox.style.border = isApproved ? "1px solid #b5e5c0" : "1px solid #f5c6cb";
+approvalBox.style.display = "block";
+  const noteBox = document.getElementById("specialNoteBox");
+  const specialCountries = ["Египет", "Абхазия", "Бангладеш", "Бахрейн", "Ботсвана", "Бразилия", "Бурунди", "Венесуэла", "Вьетнам", "Габон", "Гана", "Грузия", "Джибути", "Зимбабве", "Израиль", "Йемен", "Камерун", "Кения", "Куба", "Маврикий", "Мадагаскар", "Малави", "Мозамбик", "Мьянма", "Непал", "Нигерия", "Никарагуа", "Оман", "Пакистан", "Перу", "Руанда", "Сирия", "Судан", "Таиланд", "Танзания", "Того", "Уганда", "Узбекистан", "Эфиопия"];
+  if (specialCountries.includes(country)) {
+    noteBox.style.display = "block";
+  } else {
+    noteBox.style.display = "none";
+  }
+      const selectedCountry = countrySelect.value.replace(/<.*?>/g, '').trim();
+      
+      const records = data[selectedCountry]?.[crop] || [];
+
+      if (!records.length) {
+        resultDiv.innerHTML = '<p>Нет данных.</p>';
+        return;
+      }
+
+      
+  let html = '<table><tr><th>№</th><th>Латинское наименование</th><th>Русское наименование</th><th>Вид исследования</th><th>Специальные требования</th></tr>';
+  records.forEach((r, i) => {
+    let special = "";
+    if (country === "Египет" || country === "Абхазия" ) {
+      special = "ИКР";
+    }
+    let isHighlighted = highlightedObjects.some(obj => r["НаименованиеРус"].toLowerCase().includes(obj));
+let rowStyle = isHighlighted ? 'style="background-color: #ffe6e6;"' : "";
+
+html += `<tr ${rowStyle}>
+  <td>${i + 1}</td>
+  <td>${r["НаименованиеЛат"]}</td>
+  <td>${r["НаименованиеРус"]}</td>
+  <td>${r["Вид"]}</td>
+  <td>${r["Специальные требования"]}</td>
+</tr>`;
+  });
+resultDiv.innerHTML = html;
+    }
+
+    populateCountries();
+  </script>
+<script>
+function showTab(id) {
+  document.getElementById('mainTab').style.display = (id === 'mainTab') ? '' : 'none';
+  document.getElementById('objectTab').style.display = (id === 'objectTab') ? '' : 'none';
+
+  if (id === 'objectTab') {
+    populateObjectSelect(); // обновим список объектов
+
+    const country = countrySelect.value;
+    const crop = cropSelect.value;
+
+    if (data[country] && data[country][crop]) {
+      const firstObject = data[country][crop][0]?.["НаименованиеРус"];
+      if (firstObject) {
+        const select = document.getElementById("rusName");
+        select.value = firstObject;
+        showCountriesByObject(); // обновим страны
+      }
+    }
+  }
+}
+
+function populateObjectSelect() {
+  const objectSet = new Set();
+  for (const country in data) {
+    for (const crop in data[country]) {
+      for (const entry of data[country][crop]) {
+        objectSet.add(entry["НаименованиеРус"]);
+      }
+    }
+  }
+  const sorted = Array.from(objectSet).sort();
+  const select = document.getElementById("rusName");
+  select.innerHTML = '<option value="">-- выберите --</option>';
+  for (const name of sorted) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  }
+}
+
+function showCountriesByObject() {
+  const selected = document.getElementById("rusName").value;
+  const result = new Set();
+  const resultDiv = document.getElementById("objectResult");
+  resultDiv.innerHTML = ""; // 💡 очищаем перед вставкой
+
+  for (const country in data) {
+    for (const crop in data[country]) {
+      for (const entry of data[country][crop]) {
+        if (entry["НаименованиеРус"] === selected) {
+          result.add(country);
+        }
+      }
+    }
+  }
+
+  if (!result.size) {
+    resultDiv.innerHTML = "<p>Нет данных.</p>";
+  } else {
+    resultDiv.innerHTML = "<ul>" + Array.from(result).sort().map(c => `<li>${c}</li>`).join("") + "</ul>";
+  }
+}
+
+// Вызовем при старте
+window.addEventListener("DOMContentLoaded", () => {
+  populateCountries();
+  populateObjectSelect();
+});
+</script><script>
+function showTab(tabId) {
+  const tabs = ['mainTab', 'objectTab', 'multiObjectTab'];
+  tabs.forEach(id => {
+    document.getElementById(id).style.display = (id === tabId) ? 'block' : 'none';
+  });
+
+  // Опционально: можно вызывать обновление контента здесь
+}
+</script><script>
+function populateMultiObjectSelect() {
+  const select = document.getElementById("multiObjectSelect");
+  select.innerHTML = "";
+  const uniqueObjects = new Set();
+  for (const country in data) {
+    for (const crop in data[country]) {
+      data[country][crop].forEach(obj => {
+        uniqueObjects.add(obj["НаименованиеРус"]);
+      });
+    }
+  }
+  Array.from(uniqueObjects).sort().forEach(objName => {
+    const option = document.createElement("option");
+    option.value = objName;
+    option.textContent = objName;
+    select.appendChild(option);
+  });
+}
+
+function showCountriesWithoutObjects() {
+  const selected = Array.from(document.getElementById("multiObjectSelect").selectedOptions).map(opt => opt.value);
+  const resultBox = document.getElementById("multiObjectResult");
+  if (selected.length === 0) {
+    resultBox.innerHTML = "<b>Выберите хотя бы один объект.</b>";
+    return;
+  }
+
+  const countriesWithoutObjects = [];
+
+  for (const country in data) {
+    let hasAnyObject = false;
+    for (const crop in data[country]) {
+      for (const item of data[country][crop]) {
+        if (selected.includes(item["НаименованиеРус"])) {
+          hasAnyObject = true;
+          break;
+        }
+      }
+      if (hasAnyObject) break;
+    }
+    if (!hasAnyObject) countriesWithoutObjects.push(country);
+  }
+
+  if (countriesWithoutObjects.length === 0) {
+    resultBox.innerHTML = "<b>Все страны содержат хотя бы один из выбранных объектов.</b>";
+  } else {
+    resultBox.innerHTML = "<b>Страны, где <u>не встречаются</u> выбранные объекты:</b><br/><ul>" +
+      countriesWithoutObjects.map(c => `<li>${c}</li>`).join("") + "</ul>";
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  if (document.getElementById("multiObjectSelect")) {
+    populateMultiObjectSelect();
+  }
+});
+function populateMultiObjectSelect() {
+  const select = document.getElementById("multiObjectSelect");
+  select.innerHTML = "";
+  const uniqueObjects = new Set();
+  for (const country in data) {
+    for (const crop in data[country]) {
+      data[country][crop].forEach(obj => {
+        uniqueObjects.add(obj["НаименованиеРус"]);
+      });
+    }
+  }
+  Array.from(uniqueObjects).sort().forEach(objName => {
+    const option = document.createElement("option");
+    option.value = objName;
+    option.textContent = objName;
+    select.appendChild(option);
+  });
+}
+
+function analyzeCountriesByObjects() {
+  const selected = Array.from(document.getElementById("multiObjectSelect").selectedOptions).map(opt => opt.value);
+  const resultBox = document.getElementById("multiObjectResult");
+  if (selected.length === 0) {
+    resultBox.innerHTML = "<b>Выберите хотя бы один объект.</b>";
+    return;
+  }
+
+  const countriesWith = [];
+  const countriesWithout = [];
+
+  for (const country in data) {
+    let found = false;
+    outer: for (const crop in data[country]) {
+      for (const item of data[country][crop]) {
+        if (selected.includes(item["НаименованиеРус"])) {
+          found = true;
+          break outer;
+        }
+      }
+    }
+    if (found) {
+      countriesWith.push(country);
+    } else {
+      countriesWithout.push(country);
+    }
+  }
+
+  let html = "";
+  html += "<div style='text-align:left; max-width:700px; margin: 10px auto;'>";
+  html += "<h3 style='color:#b30000;'>🔍 Встречаются в странах:</h3>";
+  html += "<ul>" + countriesWith.map(c => "<li>" + c + "</li>").join("") + "</ul>";
+  html += "<h3 style='color:green;'>✅ Не встречаются в странах:</h3>";
+  html += "<ul>" + countriesWithout.map(c => "<li>" + c + "</li>").join("") + "</ul>";
+  html += "</div>";
+
+  resultBox.innerHTML = html;
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  if (document.getElementById("multiObjectSelect")) {
+    populateMultiObjectSelect();
+  }
+});
+function filterObjectList() {
+  const searchTerm = document.getElementById("objectSearchInput").value.toLowerCase();
+  const select = document.getElementById("multiObjectSelect");
+  const options = select.options;
+  for (let i = 0; i < options.length; i++) {
+    const text = options[i].text.toLowerCase();
+    options[i].style.display = text.includes(searchTerm) ? "block" : "none";
+  }
+}
+function analyzeCountriesByObjects() {
+  const checkboxes = document.querySelectorAll(".objectCheckbox:checked");
+  const selectedObjects = Array.from(checkboxes).map(cb => cb.value.trim());
+
+  if (selectedObjects.length === 0) {
+    document.getElementById("multiObjectResult").innerHTML = "<p>Выберите хотя бы один объект.</p>";
+    return;
+  }
+
+  const countriesWith = [];
+  const countriesWithout = [];
+
+  for (const country in data) {
+    let found = false;
+
+    for (const crop in data[country]) {
+      for (const entry of data[country][crop]) {
+        const name = (entry["НаименованиеРус"] || "").trim();
+        if (selectedObjects.includes(name)) {
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    if (found) {
+      countriesWith.push(country);
+    } else {
+      countriesWithout.push(country);
+    }
+  }
+
+  let html = `<div style="text-align:left;">`;
+
+  html += `<div style="margin-bottom:15px;"><strong>Выбранные объекты:</strong><br>`;
+  html += selectedObjects.map(obj => `• ${obj}`).join("<br>");
+  html += `</div>`;
+
+  html += `<h3 style="color:green;">✅ Страны, где указаны выбранные объекты:</h3>`;
+  html += countriesWith.length ? `<ul>${countriesWith.map(c => `<li>${c}</li>`).join("")}</ul>` : "<p>Нет стран</p>";
+
+  html += `<h3 style="color:#999;">❌ Страны, где объекты не указаны:</h3>`;
+  html += countriesWithout.length ? `<ul>${countriesWithout.map(c => `<li>${c}</li>`).join("")}</ul>` : "<p>Нет таких стран</p>";
+
+  html += `</div>`;
+
+  document.getElementById("multiObjectResult").innerHTML = html;
+}
+
+// Получить уникальные русские названия объектов из всех стран
+function populateMultiObjectSelect() {
+  const objectSet = new Set();
+
+  for (const country in data) {
+    for (const crop in data[country]) {
+      for (const entry of data[country][crop]) {
+        const name = (entry["НаименованиеРус"] || "").trim();
+        if (name) objectSet.add(name);
+      }
+    }
+  }
+
+  const sortedObjects = Array.from(objectSet).sort((a, b) => a.localeCompare(b, 'ru'));
+  const select = document.getElementById("multiObjectSelect");
+  select.innerHTML = "";
+
+  for (const obj of sortedObjects) {
+    const option = document.createElement("option");
+    option.value = obj;
+    option.textContent = obj;
+    select.appendChild(option);
+  }
+}
+window.onload = function() {
+  populateMultiObjectSelect();
+  // если у тебя есть и другие функции инициализации (например, fillCountryList()), вызови их здесь тоже
+};
+function filterObjectList() {
+  const input = document.getElementById("objectSearchInput").value.toLowerCase();
+  const options = document.getElementById("multiObjectSelect").options;
+  for (let i = 0; i < options.length; i++) {
+    const text = options[i].text.toLowerCase();
+    options[i].style.display = text.includes(input) ? "" : "none";
+  }
+}
+function populateMultiObjectCheckboxes() {
+  const objectSet = new Set();
+
+  for (const country in data) {
+    for (const crop in data[country]) {
+      for (const entry of data[country][crop]) {
+        const name = (entry["НаименованиеРус"] || "").trim();
+        if (name) objectSet.add(name);
+      }
+    }
+  }
+
+  const sortedObjects = Array.from(objectSet).sort((a, b) => a.localeCompare(b, 'ru'));
+  const container = document.getElementById("multiCheckboxList");
+  container.innerHTML = "";
+
+  for (const obj of sortedObjects) {
+    const label = document.createElement("label");
+    label.style.display = "block";
+    label.style.marginBottom = "4px";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = obj;
+    checkbox.className = "objectCheckbox";
+    checkbox.style.marginRight = "6px";
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(obj));
+    container.appendChild(label);
+  }
+}
+function filterObjectList() {
+  const input = document.getElementById("objectSearchInput").value.toLowerCase();
+  const labels = document.querySelectorAll("#multiCheckboxList label");
+
+  labels.forEach(label => {
+    const text = label.textContent.toLowerCase();
+    label.style.display = text.includes(input) ? "block" : "none";
+  });
+}
+window.onload = function () {
+  populateMultiObjectCheckboxes();
+  // другие функции, если есть
+};
+function goToTab(tabId) {
+  location.hash = tabId;
+  location.reload();
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const hash = location.hash.replace('#', '');
+  if (['mainTab', 'objectTab', 'multiObjectTab'].includes(hash)) {
+    showTab(hash);
+  } else {
+    showTab('mainTab'); // по умолчанию
+  }
+});
+</script>
+<script>
+  function checkOnlineStatus() {
+    if (!navigator.onLine) {
+      document.body.innerHTML = `
+        <div style="text-align:center; padding:50px; font-size:18px;">
+          ❌ Эта страница доступна только при наличии подключения к Интернету.
+          <br><br>
+          Пожалуйста, подключитесь к сети и перезагрузите страницу.
+        </div>`;
+    }
+  }
+
+  window.addEventListener('load', checkOnlineStatus);
+  window.addEventListener('offline', checkOnlineStatus);
+</script>
+
+<script>
+  window.dataReadyCallback = function () {
+    populateCountries();
+    populateObjectSelect();
+    populateMultiObjectCheckboxes();
+
+    const hash = location.hash.replace('#', '');
+    if (['mainTab', 'objectTab', 'multiObjectTab'].includes(hash)) {
+      showTab(hash);
+    } else {
+      showTab('mainTab');
+    }
+  };
+</script>
+
+</body>
+</html>
